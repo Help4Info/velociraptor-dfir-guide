@@ -1,0 +1,18 @@
+X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*
+
+=== FICHIER DE TEST EICAR-LIKE ===
+
+Ce fichier est base sur le standard EICAR (European Institute for Computer
+Antivirus Research) utilise pour tester les solutions antivirus.
+
+La premiere ligne contient la signature EICAR standard qui est detectee
+par tous les antivirus comme un fichier de test (non malveillant).
+
+UTILISATION:
+- Tester la detection antivirus
+- Valider les regles Velociraptor
+- Formation DFIR
+
+Ce fichier est 100% INOFFENSIF.
+
+Plus d'informations: https://www.eicar.org/download-anti-malware-testfile/

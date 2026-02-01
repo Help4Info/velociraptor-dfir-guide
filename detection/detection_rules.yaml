@@ -1,0 +1,57 @@
+# ============================================================
+# REGLES DE DETECTION VELOCIRAPTOR - CUSTOM ARTIFACT
+# ============================================================
+# Ces regles detectent les simulations de malware pour tests
+# A importer dans Velociraptor: View Artifacts > Add Custom Artifact
+# ============================================================
+
+name: Custom.Detection.MalwareSimulation
+description: |
+  Detection des fichiers et comportements de simulation de malware
+  pour tests DFIR educatifs.
+
+  Detecte:
+  - Fichiers marqueurs de simulation
+  - Scripts PowerShell suspects
+  - Outils Sysinternals telecharges
+  - Fichiers avec Zone.Identifier suspect
+
+author: Help4Info - DFIR Lab
+
+parameters:
+  - name: SearchPath
+    default: "C:/Users/**"
+    description: Chemin de recherche
+
+sources:
+  - name: MarkerFiles
+    query: |
+      SELECT FullPath, Name, Size, Mtime,
+             read_file(filename=FullPath, length=500) AS Content
+      FROM glob(globs=SearchPath + "/*malware*simulation*.txt")
+
+  - name: SuspiciousPowerShell
+    query: |
+      SELECT TimeCreated, EventID,
+             EventData.ScriptBlockText AS Script
+      FROM parse_evtx(
+        filename="C:/Windows/System32/winevt/Logs/Microsoft-Windows-PowerShell%4Operational.evtx"
+      )
+      WHERE EventID = 4104
+      AND Script =~ "DisableRealtimeMonitoring|Invoke-WebRequest|DownloadString|SIMULATION"
+      ORDER BY TimeCreated DESC
+      LIMIT 50
+
+  - name: SysinternalsTools
+    query: |
+      SELECT FullPath, Name, Size, Mtime,
+             hash(path=FullPath, hashselect="SHA256") AS SHA256
+      FROM glob(globs="C:/PerfLogs/*.exe")
+      WHERE Name =~ "psexec|procdump|sdelete"
+
+  - name: ZoneIdentifierSuspect
+    query: |
+      SELECT FullPath,
+             read_file(filename=FullPath, length=500) AS ZoneData
+      FROM glob(globs="C:/PerfLogs/*:Zone.Identifier")
+      WHERE ZoneData =~ "ZoneId=3"

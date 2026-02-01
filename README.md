@@ -12,6 +12,7 @@ A comprehensive guide for deploying Velociraptor and conducting digital forensic
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [Attack Simulation](#attack-simulation)
+- [Detection Testing](#detection-testing)
 - [Investigation Guide](#investigation-guide)
 - [VQL Queries](#vql-queries)
 - [Resources](#resources)
@@ -131,6 +132,59 @@ Compress-Archive -Path C:\PerfLogs\* -DestinationPath C:\PerfLogs\exfil.zip
 # T1070.004 - Cleanup
 Remove-Item -Path C:\PerfLogs\*.zip, C:\PerfLogs\*.dmp, C:\PerfLogs\*.ps1
 ```
+
+## 🛡️ Detection Testing
+
+This section contains test files to validate Velociraptor detection capabilities.
+
+### Test Files
+
+| File | Purpose |
+|------|---------|
+| `detection/test_malware_simulation.ps1` | PowerShell script simulating malware behavior |
+| `detection/detection_rules.yaml` | Custom Velociraptor artifact for detection |
+| `detection/vql_detection_queries.md` | VQL queries for threat hunting |
+| `detection/EICAR_LIKE_TEST.txt` | EICAR-based test file for AV detection |
+
+### Malware Simulation Script
+
+The `test_malware_simulation.ps1` script simulates these MITRE ATT&CK techniques:
+
+| Technique | Description |
+|-----------|-------------|
+| T1059.001 | PowerShell execution |
+| T1082 | System Information Discovery |
+| T1083 | File and Directory Discovery |
+| T1057 | Process Discovery |
+| T1018 | Remote System Discovery |
+
+### Detection VQL Queries
+
+```sql
+-- Detect simulation marker files
+SELECT FullPath, Name, Size, Mtime,
+       read_file(filename=FullPath, length=500) AS Content
+FROM glob(globs="C:/Users/*/AppData/Local/Temp/*malware*simulation*.txt")
+
+-- Detect Sysinternals tools
+SELECT FullPath, Name, Size,
+       hash(path=FullPath, hashselect="SHA256") AS SHA256
+FROM glob(globs="C:/PerfLogs/*.exe")
+WHERE Name =~ "psexec|procdump|sdelete"
+
+-- Detect files from Internet (Zone.Identifier)
+SELECT FullPath,
+       read_file(filename=FullPath + ":Zone.Identifier", length=500) AS ZoneData
+FROM glob(globs="C:/PerfLogs/*.exe")
+```
+
+### Custom Artifact Import
+
+To import the custom detection artifact:
+1. Go to **View Artifacts** in Velociraptor
+2. Click **Add Custom Artifact**
+3. Paste content from `detection/detection_rules.yaml`
+4. Save and use in hunts
 
 ## 🔍 Investigation Guide
 
