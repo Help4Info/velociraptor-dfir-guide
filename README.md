@@ -5,6 +5,18 @@ A comprehensive guide for deploying Velociraptor and conducting digital forensic
 ![Velociraptor](https://img.shields.io/badge/Velociraptor-DFIR-blue)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+![AI-Powered](https://img.shields.io/badge/AI-Powered-purple)
+
+<p align="center">
+  <img src="diagrams/DetectionAIVelo.png" alt="Velociraptor AI-DFIR Architecture" width="100%">
+</p>
+
+<p align="center">
+  <b>AI-Augmented Digital Forensics & Incident Response Platform</b><br>
+  Automated threat detection and response powered by Gemini, GPT-4, Claude & Ollama
+</p>
+
+---
 
 ## 📋 Table of Contents
 
