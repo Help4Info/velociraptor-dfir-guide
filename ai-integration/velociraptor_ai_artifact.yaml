@@ -1,0 +1,204 @@
+# ============================================================
+# VELOCIRAPTOR ARTIFACT - AI-AUGMENTED ANALYSIS
+# ============================================================
+# Cet artifact envoie les données collectées à une API AI
+# pour analyse automatique et génère des recommandations
+#
+# Installation:
+# 1. View Artifacts > Add Custom Artifact
+# 2. Coller ce contenu
+# 3. Sauvegarder
+# ============================================================
+
+name: Custom.AI.AugmentedAnalysis
+description: |
+  Analyse les artefacts collectés avec une API AI (Gemini/GPT/Claude)
+  et génère des recommandations de sécurité automatiques.
+
+  Fonctionnalités:
+  - Analyse automatique des IOCs
+  - Mapping MITRE ATT&CK
+  - Score de sévérité
+  - Recommandations de remédiation
+
+author: Help4Info
+reference:
+  - https://github.com/Help4Info/velociraptor-dfir-guide
+
+type: SERVER
+
+parameters:
+  - name: AIProvider
+    description: "Fournisseur AI à utiliser"
+    type: choices
+    default: "gemini"
+    choices:
+      - gemini
+      - openai
+      - ollama
+
+  - name: APIKey
+    description: "Clé API (Gemini ou OpenAI)"
+    type: string
+
+  - name: OllamaURL
+    description: "URL du serveur Ollama (si utilisé)"
+    default: "http://localhost:11434"
+
+  - name: DataToAnalyze
+    description: "Données JSON à analyser"
+    type: string
+
+  - name: ClientId
+    description: "ID du client source"
+    type: string
+
+sources:
+  - name: AIAnalysis
+    query: |
+      LET SystemPrompt = '''Tu es un expert DFIR. Analyse ces données et réponds en JSON:
+      {"severity": 1-10, "summary": "...", "mitre_techniques": ["T1xxx"], "iocs": [...], "recommendations": [...]}'''
+
+      LET GeminiAnalysis = SELECT *
+      FROM http_client(
+        url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + APIKey,
+        method="POST",
+        headers=dict(`Content-Type`="application/json"),
+        data=serialize(item=dict(
+          contents=array(a=dict(
+            parts=array(a=dict(
+              text=SystemPrompt + "\n\nDonnées:\n" + DataToAnalyze
+            ))
+          )),
+          generationConfig=dict(temperature=0.1, maxOutputTokens=2048)
+        ))
+      )
+
+      LET OpenAIAnalysis = SELECT *
+      FROM http_client(
+        url="https://api.openai.com/v1/chat/completions",
+        method="POST",
+        headers=dict(
+          `Content-Type`="application/json",
+          `Authorization`="Bearer " + APIKey
+        ),
+        data=serialize(item=dict(
+          model="gpt-4-turbo-preview",
+          messages=array(
+            a=dict(role="system", content=SystemPrompt),
+            b=dict(role="user", content="Données:\n" + DataToAnalyze)
+          ),
+          temperature=0.1
+        ))
+      )
+
+      LET OllamaAnalysis = SELECT *
+      FROM http_client(
+        url=OllamaURL + "/api/generate",
+        method="POST",
+        headers=dict(`Content-Type`="application/json"),
+        data=serialize(item=dict(
+          model="llama3.1",
+          prompt=SystemPrompt + "\n\nDonnées:\n" + DataToAnalyze,
+          stream=false,
+          format="json"
+        ))
+      )
+
+      LET Analysis = SELECT *
+      FROM if(condition=AIProvider="gemini", then=GeminiAnalysis,
+           else=if(condition=AIProvider="openai", then=OpenAIAnalysis,
+           else=OllamaAnalysis))
+
+      SELECT
+        ClientId,
+        AIProvider,
+        timestamp(epoch=now()) AS AnalysisTime,
+        Analysis.Response AS RawResponse,
+        parse_json(data=Analysis.Response).candidates[0].content.parts[0].text AS AIResponse
+      FROM Analysis
+
+---
+# ============================================================
+# ARTIFACT - AUTOMATED THREAT HUNTING WITH AI
+# ============================================================
+
+name: Custom.AI.ThreatHunter
+description: |
+  Chasse aux menaces automatisée avec analyse AI.
+  Collecte plusieurs artefacts et les envoie à l'AI pour corrélation.
+
+author: Help4Info
+type: CLIENT
+
+parameters:
+  - name: AIEndpoint
+    description: "URL de l'endpoint AI (webhook ou API)"
+    default: "http://your-ai-server:5000/analyze"
+
+  - name: IncludePowerShellLogs
+    type: bool
+    default: true
+
+  - name: IncludeNetworkConnections
+    type: bool
+    default: true
+
+  - name: IncludeProcessList
+    type: bool
+    default: true
+
+  - name: IncludeRecentFiles
+    type: bool
+    default: true
+
+sources:
+  - name: CollectAndAnalyze
+    query: |
+      // Collecter les logs PowerShell suspects
+      LET PowerShellLogs = SELECT TimeCreated, EventID, Message
+      FROM parse_evtx(
+        filename="C:/Windows/System32/winevt/Logs/Microsoft-Windows-PowerShell%4Operational.evtx"
+      )
+      WHERE EventID = 4104
+      AND Message =~ "Invoke-|Download|WebRequest|DisableRealtimeMonitoring|EncodedCommand"
+      ORDER BY TimeCreated DESC
+      LIMIT 50
+
+      // Collecter les connexions réseau suspectes
+      LET NetworkConns = SELECT Pid, Name, LocalAddress, RemoteAddress, Status
+      FROM netstat()
+      WHERE NOT RemoteAddress =~ "^(127\\.|10\\.|192\\.168\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.)"
+
+      // Collecter les processus suspects
+      LET SuspiciousProcesses = SELECT Name, Pid, PPid, Username, CommandLine, CreateTime
+      FROM pslist()
+      WHERE CommandLine =~ "powershell.*-enc|cmd.*/c|wscript|cscript|mshta"
+
+      // Collecter les fichiers récents dans Temp
+      LET RecentFiles = SELECT Name, FullPath, Size, Mtime
+      FROM glob(globs="C:/Users/*/AppData/Local/Temp/*")
+      WHERE Mtime > timestamp(epoch=now() - 3600)
+      ORDER BY Mtime DESC
+      LIMIT 20
+
+      // Préparer les données pour l'AI
+      LET CollectedData = dict(
+        hostname=info().Hostname,
+        timestamp=timestamp(epoch=now()),
+        powershell_logs=if(condition=IncludePowerShellLogs, then=PowerShellLogs, else=[]),
+        network_connections=if(condition=IncludeNetworkConnections, then=NetworkConns, else=[]),
+        suspicious_processes=if(condition=IncludeProcessList, then=SuspiciousProcesses, else=[]),
+        recent_temp_files=if(condition=IncludeRecentFiles, then=RecentFiles, else=[])
+      )
+
+      // Retourner les données (peuvent être envoyées à l'AI via webhook)
+      SELECT
+        CollectedData.hostname AS Hostname,
+        CollectedData.timestamp AS CollectionTime,
+        len(list=CollectedData.powershell_logs) AS PowerShellEventsCount,
+        len(list=CollectedData.network_connections) AS ExternalConnectionsCount,
+        len(list=CollectedData.suspicious_processes) AS SuspiciousProcessesCount,
+        len(list=CollectedData.recent_temp_files) AS RecentTempFilesCount,
+        serialize(item=CollectedData) AS JSONData
+      FROM scope()

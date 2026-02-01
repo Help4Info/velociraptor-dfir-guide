@@ -13,6 +13,7 @@ A comprehensive guide for deploying Velociraptor and conducting digital forensic
 - [Installation](#installation)
 - [Attack Simulation](#attack-simulation)
 - [Detection Testing](#detection-testing)
+- [AI Integration](#ai-integration)
 - [Investigation Guide](#investigation-guide)
 - [VQL Queries](#vql-queries)
 - [Resources](#resources)
@@ -185,6 +186,67 @@ To import the custom detection artifact:
 2. Click **Add Custom Artifact**
 3. Paste content from `detection/detection_rules.yaml`
 4. Save and use in hunts
+
+## 🤖 AI Integration
+
+Automated threat detection and response using Large Language Models.
+
+### Supported AI Providers
+
+| Provider | Speed | Cost | Best For |
+|----------|-------|------|----------|
+| Gemini Flash 2.0 | ~200ms | Free tier | Real-time analysis |
+| GPT-4 Turbo | ~1-2s | Pay-per-use | Complex analysis |
+| Claude 3.5 | ~1s | Pay-per-use | Security focus |
+| Ollama (Local) | Variable | Free | Air-gapped environments |
+
+### Architecture
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│ Velociraptor│────►│ Webhook      │────►│ AI Engine   │
+│ Server      │     │ Server       │     │ (Gemini/GPT)│
+└─────────────┘     └──────────────┘     └──────┬──────┘
+                                                │
+                    ┌──────────────┐            │
+                    │ Auto Response│◄───────────┘
+                    │ - Isolate    │
+                    │ - Block IOCs │
+                    │ - Alert SOC  │
+                    └──────────────┘
+```
+
+### Quick Start
+
+```bash
+# Install dependencies
+pip install flask requests google-generativeai
+
+# Set API key
+export GEMINI_API_KEY="your-api-key"
+
+# Start webhook server
+python ai-integration/webhook_server.py
+```
+
+### Files
+
+| File | Description |
+|------|-------------|
+| `ai-integration/velociraptor_ai_analyzer.py` | Main Python library |
+| `ai-integration/webhook_server.py` | Flask webhook server |
+| `ai-integration/velociraptor_ai_artifact.yaml` | Custom Velociraptor artifact |
+
+### Auto-Response Actions
+
+| Severity | Action | Description |
+|----------|--------|-------------|
+| 9-10 | ISOLATE | Isolate endpoint from network |
+| 7-8 | BLOCK | Block identified IOCs |
+| 5-6 | ALERT | Send alert to SOC team |
+| 1-4 | NONE | Log only |
+
+See [ai-integration/README.md](ai-integration/README.md) for full documentation.
 
 ## 🔍 Investigation Guide
 
